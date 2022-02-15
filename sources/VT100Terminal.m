@@ -1600,7 +1600,7 @@ static const int kMaxScreenRows = 4096;
     [_delegate terminalSendReport:[self.output reportSGRCodes:codes]];
 }
 
-- (NSString *)decodedBase64PasteCommand:(NSString *)commandString {
+- (void)base64PasteCommand:(NSString *)commandString {
     //
     // - write access
     //   ESC ] 5 2 ; Pc ; <base64 encoded string> ST
@@ -1620,24 +1620,26 @@ static const int kMaxScreenRows = 4096;
         ++buffer;
     }
     if (*buffer != ';') {
-        return nil; // fail to parse
+        return; // fail to parse
     }
     ++buffer;
     if (*buffer == '?') { // PASTE64(OSC 52) read access
-        // Now read access is not implemented due to security issues.
-        return nil;
+        if (![iTermAdvancedSettingsModel disablePotentiallyInsecureEscapeSequences]) {
+            [_delegate terminalSendReport:[self.output reportPasteboard]];
+        }
+        return;
     }
 
     // decode base64 string.
     int destLength = apr_base64_decode_len(buffer);
     if (destLength < 1) {
-        return nil;
+        return;
     }
     NSMutableData *data = [NSMutableData dataWithLength:destLength];
     char *decodedBuffer = [data mutableBytes];
     int resultLength = apr_base64_decode(decodedBuffer, buffer);
     if (resultLength < 0) {
-        return nil;
+        return;
     }
 
     // sanitize buffer
@@ -1667,7 +1669,7 @@ static const int kMaxScreenRows = 4096;
 
     NSString *resultString = [[NSString alloc] initWithData:data
                                                    encoding:[self encoding]];
-    return resultString;
+    [_delegate terminalCopyStringToPasteboard:resultString];
 }
 
 // The main and alternate screens have different saved cursors. This returns the current one. In
@@ -2534,10 +2536,7 @@ static BOOL VT100TokenIsTmux(VT100Token *token) {
         }
         case XTERMCC_PASTE64: {
             if (token.string) {
-                NSString *decoded = [self decodedBase64PasteCommand:token.string];
-                if (decoded) {
-                    [_delegate terminalCopyStringToPasteboard:decoded];
-                }
+                [self base64PasteCommand:token.string];
             }
             break;
         }

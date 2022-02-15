@@ -5,6 +5,7 @@
 #import "NSStringITerm.h"
 #import "iTermAdvancedSettingsModel.h"
 
+#import <apr-1/apr_base64.h>  // for xterm's base64 decoding (paste64)
 #include <term.h>
 
 #define MEDIAN(min_, mid_, max_) MAX(MIN(mid_, max_), min_)
@@ -341,6 +342,24 @@ typedef enum {
     }
     [data appendData:theSuffix];
     return data;
+}
+
+
+- (NSData *)reportPasteboard
+{
+    NSString *pasteboard = [NSString stringFromPasteboard];
+    const char* cPasteboard = [pasteboard UTF8String];
+    int destLength = apr_base64_encode_len(pasteboard.length);
+    NSMutableData *data = [NSMutableData dataWithLength:destLength];
+    char *encodedBuffer = [data mutableBytes];
+    int resultLength = apr_base64_encode(encodedBuffer, cPasteboard, pasteboard.length);
+
+    if (resultLength < 0) {
+        return nil;
+    }
+
+    NSString *report = [NSString stringWithFormat:@"\e]52;;%s\a", encodedBuffer];
+    return [report dataUsingEncoding:NSISOLatin1StringEncoding];
 }
 
 - (BOOL)isLikeXterm {

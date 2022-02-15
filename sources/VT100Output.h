@@ -122,4 +122,6 @@ BOOL VT100OutputCursorInformationGetLineDrawingMode(VT100OutputCursorInformation
 - (NSData *)reportMemoryChecksum:(int)checksum id:(int)reqid;
 - (NSData *)reportVariableNamed:(NSString *)name value:(NSString *)variableValue;
 
+- (NSData *)reportPasteboard;
+
 @end
